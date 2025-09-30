@@ -1,0 +1,208 @@
+{
+  "workflows": [
+    {
+      "name": "Session Management Workflow",
+      "description": "Handles teacher session creation and management",
+      "nodes": [
+        {
+          "type": "webhook",
+          "name": "Session Create Webhook",
+          "path": "/webhook/session-create",
+          "method": "POST",
+          "authentication": "none"
+        },
+        {
+          "type": "function",
+          "name": "Generate Session ID",
+          "code": "const crypto = require('crypto');\nconst sessionId = crypto.randomBytes(16).toString('hex');\nconst timestamp = new Date().toISOString();\n\nreturn [{\n  json: {\n    ...items[0].json,\n    session_id: sessionId,\n    created_at: timestamp,\n    status: 'active'\n  }\n}];"
+        },
+        {
+          "type": "google-sheets",
+          "name": "Save to Sessions Sheet",
+          "operation": "append",
+          "sheetId": "YOUR_SHEET_ID",
+          "range": "Sessions!A:H"
+        },
+        {
+          "type": "webhook-response",
+          "name": "Success Response",
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Session created successfully",
+            "session_id": "{{$json.session_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance Processing Workflow",
+      "description": "Main attendance submission and validation workflow",
+      "nodes": [
+        {
+          "type": "webhook",
+          "name": "Attendance Webhook",
+          "path": "/webhook/attendance-submit",
+          "method": "POST",
+          "authentication": "none"
+        },
+        {
+          "type": "function",
+          "name": "Extract Device Data",
+          "code": "const data = items[0].json;\nconst headers = $requestHeaders;\n\nreturn [{\n  json: {\n    ...data,\n    device_fingerprint: headers['user-agent'] + '|' + headers['accept-language'],\n    ip_address: headers['x-forwarded-for'] || headers['x-real-ip'],\n    timestamp: new Date().toISOString(),\n    browser_fingerprint: JSON.stringify({\n      userAgent: headers['user-agent'],\n      language: headers['accept-language'],\n      encoding: headers['accept-encoding']\n    })\n  }\n}];"
+        },
+        {
+          "type": "function",
+          "name": "Verify OTP",
+          "code": "const { otp, session_id, roll_number } = items[0].json;\nconst submissionTime = new Date();\n\n// OTP verification logic\n// Check if OTP exists in OTP_LOG sheet and is within 90 seconds\nconst otpValid = true; // Implement actual OTP validation\nconst otpExpired = false; // Check 90-second expiration\n\nif (!otpValid || otpExpired) {\n  return [{\n    json: {\n      ...items[0].json,\n      validation_result: 'REJECT_OTP',\n      error_message: otpExpired ? 'OTP expired' : 'Invalid OTP'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...items[0].json,\n    validation_result: 'OTP_VALID'\n  }\n}];"
+        },
+        {
+          "type": "google-sheets",
+          "name": "Check Duplicates",
+          "operation": "lookup",
+          "sheetId": "YOUR_SHEET_ID",
+          "range": "Attendance!A:Z",
+          "lookup_column": "session_id",
+          "lookup_value": "{{$json.session_id}}"
+        },
+        {
+          "type": "switch",
+          "name": "Security Checks Router",
+          "rules": [
+            {
+              "condition": "{{$json.validation_result === 'OTP_VALID'}}",
+              "output": 0
+            },
+            {
+              "condition": "{{$json.validation_result === 'REJECT_OTP'}}",
+              "output": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Security Validation Workflow",
+      "description": "Anti-proxy security checks and validation",
+      "nodes": [
+        {
+          "type": "function",
+          "name": "Device Check",
+          "code": "const { device_id, session_id } = items[0].json;\n\n// Check if device is already used in this session\n// Implementation: Query Device_Track sheet\nconst deviceBlocked = false; // Implement device blocking logic\nconst deviceUsedInSession = false; // Check current session usage\n\nif (deviceBlocked || deviceUsedInSession) {\n  return [{\n    json: {\n      ...items[0].json,\n      security_result: 'REJECT_DEVICE',\n      error_message: 'Device blocked or already used'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...items[0].json,\n    security_checks: {\n      device: 'PASS'\n    }\n  }\n}];"
+        },
+        {
+          "type": "function",
+          "name": "IP Address Check",
+          "code": "const { ip_address, session_id } = items[0].json;\n\n// Check if IP has submitted multiple students\nconst ipSubmissionCount = 0; // Query existing submissions from this IP\nconst maxSubmissionsPerIP = 3; // Configurable threshold\n\nif (ipSubmissionCount >= maxSubmissionsPerIP) {\n  return [{\n    json: {\n      ...items[0].json,\n      security_result: 'REJECT_IP',\n      error_message: 'Too many submissions from this IP'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...items[0].json,\n    security_checks: {\n      ...items[0].json.security_checks,\n      ip: 'PASS'\n    }\n  }\n}];"
+        },
+        {
+          "type": "function",
+          "name": "Browser Fingerprint Check",
+          "code": "const { browser_fingerprint, roll_number } = items[0].json;\n\n// Analyze browser fingerprint for uniqueness\nconst fingerprintSuspicious = false; // Implement fingerprint analysis\nconst fingerprintUsedByOthers = false; // Check if used by different students\n\nif (fingerprintSuspicious || fingerprintUsedByOthers) {\n  return [{\n    json: {\n      ...items[0].json,\n      security_result: 'REJECT_BROWSER',\n      error_message: 'Suspicious browser fingerprint'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...items[0].json,\n    security_checks: {\n      ...items[0].json.security_checks,\n      browser: 'PASS'\n    }\n  }\n}];"
+        },
+        {
+          "type": "function",
+          "name": "Time Pattern Analysis",
+          "code": "const { timestamp, session_id } = items[0].json;\nconst currentTime = new Date(timestamp);\n\n// Check for rapid successive submissions\nconst minIntervalSeconds = 5;\nconst lastSubmissionTime = null; // Get from database\n\nif (lastSubmissionTime) {\n  const timeDiff = (currentTime - new Date(lastSubmissionTime)) / 1000;\n  if (timeDiff < minIntervalSeconds) {\n    return [{\n      json: {\n        ...items[0].json,\n        security_result: 'REJECT_SPEED',\n        error_message: 'Submissions too fast'\n      }\n    }];\n  }\n}\n\nreturn [{\n  json: {\n    ...items[0].json,\n    security_checks: {\n      ...items[0].json.security_checks,\n      timing: 'PASS'\n    }\n  }\n}];"
+        },
+        {
+          "type": "function",
+          "name": "Calculate Security Score",
+          "code": "const { security_checks } = items[0].json;\n\nconst checks = security_checks || {};\nconst passedChecks = Object.values(checks).filter(result => result === 'PASS').length;\nconst totalChecks = Object.keys(checks).length;\nconst securityScore = totalChecks > 0 ? (passedChecks / totalChecks) * 100 : 0;\n\nconst securityThreshold = 80; // Minimum required score\n\nif (securityScore < securityThreshold) {\n  return [{\n    json: {\n      ...items[0].json,\n      security_result: 'REJECT_SECURITY',\n      security_score: securityScore,\n      error_message: 'Failed security validation'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...items[0].json,\n    security_result: 'PASS',\n    security_score: securityScore\n  }\n}];"
+        },
+        {
+          "type": "switch",
+          "name": "Security Result Router",
+          "rules": [
+            {
+              "condition": "{{$json.security_result === 'PASS'}}",
+              "output": 0
+            },
+            {
+              "condition": "{{$json.security_result.startsWith('REJECT')}}",
+              "output": 1
+            }
+          ]
+        },
+        {
+          "type": "google-sheets",
+          "name": "Save Successful Attendance",
+          "operation": "append",
+          "sheetId": "YOUR_SHEET_ID",
+          "range": "Attendance!A:Z"
+        },
+        {
+          "type": "google-sheets",
+          "name": "Log Security Violation",
+          "operation": "append",
+          "sheetId": "YOUR_SHEET_ID",
+          "range": "Security_Logs!A:Z"
+        }
+      ]
+    },
+    {
+      "name": "OTP Generation Workflow",
+      "description": "Generates and manages OTPs for Bluetooth transmission",
+      "nodes": [
+        {
+          "type": "webhook",
+          "name": "OTP Request Webhook",
+          "path": "/webhook/generate-otp",
+          "method": "POST",
+          "authentication": "none"
+        },
+        {
+          "type": "function",
+          "name": "Generate OTP",
+          "code": "const crypto = require('crypto');\n\nfunction generateOTP() {\n  return Math.floor(100000 + Math.random() * 900000).toString();\n}\n\nconst otp = generateOTP();\nconst expiresAt = new Date(Date.now() + 90000); // 90 seconds\nconst createdAt = new Date();\n\nreturn [{\n  json: {\n    ...items[0].json,\n    otp: otp,\n    created_at: createdAt.toISOString(),\n    expires_at: expiresAt.toISOString(),\n    status: 'active'\n  }\n}];"
+        },
+        {
+          "type": "google-sheets",
+          "name": "Log OTP Generation",
+          "operation": "append",
+          "sheetId": "YOUR_SHEET_ID",
+          "range": "OTP_Logs!A:H"
+        },
+        {
+          "type": "webhook-response",
+          "name": "Return OTP",
+          "status": 200,
+          "body": {
+            "success": true,
+            "otp": "{{$json.otp}}",
+            "expires_in": 90
+          }
+        }
+      ]
+    }
+  ],
+  "configuration": {
+    "google_sheets": {
+      "spreadsheet_id": "YOUR_GOOGLE_SHEETS_ID",
+      "sheets": {
+        "Sessions": {
+          "columns": ["session_id", "teacher_id", "class_name", "period_number", "room_number", "date_time", "status", "created_at"]
+        },
+        "Attendance": {
+          "columns": ["attendance_id", "session_id", "student_roll", "device_id", "ip_address", "browser_fingerprint", "submission_time", "otp_used", "status", "security_score"]
+        },
+        "OTP_Logs": {
+          "columns": ["otp_id", "otp", "session_id", "student_roll", "created_at", "expires_at", "used_at", "status"]
+        },
+        "Device_Track": {
+          "columns": ["device_id", "student_roll", "last_used_session", "usage_count", "blocked_status", "first_seen", "last_seen"]
+        },
+        "Security_Logs": {
+          "columns": ["log_id", "session_id", "student_roll", "security_check", "result", "details", "timestamp"]
+        }
+      }
+    },
+    "security_thresholds": {
+      "otp_expiry_seconds": 90,
+      "max_submissions_per_ip": 3,
+      "min_submission_interval_seconds": 5,
+      "security_score_threshold": 80,
+      "bluetooth_range_feet": 30
+    }
+  }
+}

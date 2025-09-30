@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Portal - Claude Smart Attendance</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2196F3">
+</head>
+<body>
+    <div class="container mobile">
+        <header>
+            <h1>🎓 Student Portal</h1>
+            <div class="user-info">
+                <span id="studentName">Welcome, Student</span>
+                <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Login Section -->
+            <section id="loginSection" class="card">
+                <h2>Student Login</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="rollNumber">Roll Number:</label>
+                        <input type="text" id="rollNumber" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+            </section>
+
+            <!-- Attendance Section -->
+            <section id="attendanceSection" class="hidden">
+                <!-- Bluetooth Status -->
+                <div class="card">
+                    <h2>📡 Bluetooth Connection</h2>
+                    <div class="bluetooth-status">
+                        <div class="status-indicator" id="bluetoothStatus">
+                            <span class="status-dot offline"></span>
+                            <span id="statusText">Bluetooth Disabled</span>
+                        </div>
+                        <button id="enableBluetoothBtn" class="btn btn-primary">Enable Bluetooth</button>
+                    </div>
+                    
+                    <div class="proximity-indicator">
+                        <div class="radar-container" id="radarContainer">
+                            <div class="radar-circle">
+                                <div class="radar-sweep"></div>
+                                <div class="radar-center"></div>
+                            </div>
+                            <p id="proximityText">Searching for classroom...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendance Form -->
+                <div class="card">
+                    <h2>✅ Mark Attendance</h2>
+                    
+                    <!-- Session Info -->
+                    <div class="session-info hidden" id="sessionInfo">
+                        <h3>Session Found!</h3>
+                        <div class="session-details">
+                            <p><strong>Class:</strong> <span id="foundClassName">-</span></p>
+                            <p><strong>Period:</strong> <span id="foundPeriod">-</span></p>
+                            <p><strong>Room:</strong> <span id="foundRoom">-</span></p>
+                        </div>
+                    </div>
+                    
+                    <!-- OTP Display -->
+                    <div class="otp-section hidden" id="otpSection">
+                        <div class="otp-display">
+                            <h3>Your OTP:</h3>
+                            <div class="otp-code" id="otpCode">------</div>
+                            <div class="timer-container">
+                                <div class="timer-circle">
+                                    <span class="timer-text" id="timerText">90</span>
+                                </div>
+                                <p>seconds remaining</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Attendance Form -->
+                    <form id="attendanceForm" class="hidden">
+                        <div class="form-group">
+                            <label for="rollInput">Roll Number:</label>
+                            <input type="text" id="rollInput" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="otpInput">Enter OTP:</label>
+                            <input type="text" id="otpInput" maxlength="6" required>
+                        </div>
+                        <button type="submit" class="btn btn-success" id="submitAttendance">Submit Attendance</button>
+                    </form>
+                    
+                    <!-- Status Messages -->
+                    <div class="status-message" id="statusMessage"></div>
+                </div>
+
+                <!-- Instructions -->
+                <div class="card">
+                    <h2>📝 Instructions</h2>
+                    <ol class="instructions-list">
+                        <li>Ensure you are within 10-30 feet of your teacher's device</li>
+                        <li>Enable Bluetooth on your mobile device</li>
+                        <li>Wait for the system to detect the classroom beacon</li>
+                        <li>Enter the OTP received via Bluetooth</li>
+                        <li>Submit within 90 seconds</li>
+                    </ol>
+                    
+                    <div class="help-section">
+                        <h3>Troubleshooting</h3>
+                        <ul>
+                            <li><strong>Beacon not found:</strong> Move closer to the teacher's device</li>
+                            <li><strong>OTP expired:</strong> Request a new OTP from your teacher</li>
+                            <li><strong>Bluetooth issues:</strong> Check device permissions</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Progress Modal -->
+        <div id="progressModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="progress-container">
+                    <div class="spinner"></div>
+                    <h3 id="progressTitle">Processing...</h3>
+                    <p id="progressMessage">Please wait while we process your attendance.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Toast -->
+        <div id="toast" class="toast hidden">
+            <span id="toastMessage"></span>
+            <button id="toastClose">&times;</button>
+        </div>
+    </div>
+
+    <script src="student-portal.js"></script>
+</body>
+</html>

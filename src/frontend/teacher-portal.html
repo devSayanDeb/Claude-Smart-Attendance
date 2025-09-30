@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Portal - Claude Smart Attendance</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎓 Teacher Portal</h1>
+            <div class="user-info">
+                <span id="teacherName">Welcome, Teacher</span>
+                <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Login Section -->
+            <section id="loginSection" class="card">
+                <h2>Teacher Login</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="teacherId">Teacher ID:</label>
+                        <input type="text" id="teacherId" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+            </section>
+
+            <!-- Dashboard Section -->
+            <section id="dashboardSection" class="hidden">
+                <!-- Session Creation -->
+                <div class="card">
+                    <h2>Create New Session</h2>
+                    <form id="sessionForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="className">Class Name:</label>
+                                <input type="text" id="className" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="periodNumber">Period:</label>
+                                <input type="number" id="periodNumber" min="1" max="10" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="roomNumber">Room Number:</label>
+                                <input type="text" id="roomNumber" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="sessionDate">Date & Time:</label>
+                                <input type="datetime-local" id="sessionDate" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Session</button>
+                    </form>
+                </div>
+
+                <!-- Bluetooth Control -->
+                <div class="card">
+                    <h2>📡 Bluetooth Beacon Control</h2>
+                    <div class="bluetooth-status">
+                        <div class="status-indicator" id="bluetoothStatus">
+                            <span class="status-dot offline"></span>
+                            <span id="statusText">Bluetooth Offline</span>
+                        </div>
+                        <button id="bluetoothToggle" class="btn btn-primary">Enable Bluetooth</button>
+                    </div>
+                    
+                    <div class="beacon-controls hidden" id="beaconControls">
+                        <div class="beacon-info">
+                            <h3>Session: <span id="activeSessionName">-</span></h3>
+                            <p>Beacon Range: 10-30 feet</p>
+                            <p>Session ID: <span id="activeSessionId">-</span></p>
+                        </div>
+                        <button id="startBeacon" class="btn btn-success">Start Beacon</button>
+                        <button id="stopBeacon" class="btn btn-danger hidden">Stop Beacon</button>
+                    </div>
+                </div>
+
+                <!-- Real-time Attendance -->
+                <div class="card">
+                    <h2>📊 Real-time Attendance</h2>
+                    <div class="attendance-stats">
+                        <div class="stat-card">
+                            <h3>Present</h3>
+                            <span class="stat-number" id="presentCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Students</h3>
+                            <span class="stat-number" id="totalStudents">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Success Rate</h3>
+                            <span class="stat-number" id="successRate">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="attendance-list">
+                        <h3>Recent Submissions</h3>
+                        <div id="attendanceLog"></div>
+                    </div>
+                </div>
+
+                <!-- Security Alerts -->
+                <div class="card">
+                    <h2>🛡️ Security Monitoring</h2>
+                    <div class="alert-controls">
+                        <button id="clearAlerts" class="btn btn-secondary">Clear Alerts</button>
+                        <button id="exportData" class="btn btn-primary">Export Data</button>
+                    </div>
+                    
+                    <div class="security-stats">
+                        <div class="security-card">
+                            <h4>Blocked Attempts</h4>
+                            <span class="security-number" id="blockedCount">0</span>
+                        </div>
+                        <div class="security-card">
+                            <h4>Suspicious Activity</h4>
+                            <span class="security-number" id="suspiciousCount">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="alerts-list" id="securityAlerts">
+                        <!-- Security alerts will be populated here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Status Toast -->
+        <div id="toast" class="toast hidden">
+            <span id="toastMessage"></span>
+            <button id="toastClose">&times;</button>
+        </div>
+    </div>
+
+    <script src="teacher-portal.js"></script>
+</body>
+</html>
