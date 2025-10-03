@@ -12,15 +12,38 @@ const TeacherDashboard = ({ user, onLogout }) => {
   const [attendanceList, setAttendanceList] = useState([]);
   const [stats, setStats] = useState({
     totalPresent: 0,
-    totalExpected: 30,
+    totalExpected: 0,
     averageSecurityScore: 0,
     lastUpdated: new Date()
   });
-
   const [activity, setActivity] = useState([
-    { id: 1, message: 'System ready for attendance', time: '10:20 PM', type: 'info' },
-    { id: 2, message: 'Bluetooth beacon initialized', time: '10:19 PM', type: 'success' }
+    { id: 1, message: 'System initialized and ready', time: new Date().toLocaleTimeString(), type: 'info' }
   ]);
+
+  const addActivity = (message, type = 'info') => {
+    setActivity(prev => [{
+      id: Date.now(),
+      message,
+      time: new Date().toLocaleTimeString(),
+      type
+    }, ...prev.slice(0, 9)]);
+  };
+
+  const updateStats = (newAttendance) => {
+    setStats(prev => {
+      const newTotal = prev.totalPresent + 1;
+      const newAvgScore = Math.round(
+        ((prev.averageSecurityScore * prev.totalPresent) + newAttendance.securityScore) / newTotal
+      );
+      
+      return {
+        ...prev,
+        totalPresent: newTotal,
+        averageSecurityScore: newAvgScore,
+        lastUpdated: new Date()
+      };
+    });
+  };
 
   const handleStartSession = async (e) => {
     e.preventDefault();
@@ -42,17 +65,75 @@ const TeacherDashboard = ({ user, onLogout }) => {
         const result = await response.json();
         setCurrentSession(result.session);
         setSessionActive(true);
+        setAttendanceList([]); // Clear previous attendance
+        setStats({
+          totalPresent: 0,
+          totalExpected: 0,
+          averageSecurityScore: 0,
+          lastUpdated: new Date()
+        });
         
-        setActivity(prev => [{
-          id: Date.now(),
-          message: `Session started: ${sessionData.className}`,
-          time: new Date().toLocaleTimeString(),
-          type: 'success'
-        }, ...prev]);
+        addActivity(`Session started: ${sessionData.className} in Room ${sessionData.roomNumber}`, 'success');
+        
+        // Start polling for attendance updates
+        startAttendancePolling(result.session.id);
+      } else {
+        addActivity('Failed to start session', 'error');
       }
     } catch (error) {
       console.error('Error starting session:', error);
+      addActivity('Network error - could not start session', 'error');
     }
+  };
+
+  const startAttendancePolling = (sessionId) => {
+    const interval = setInterval(async () => {
+      if (!sessionActive) {
+        clearInterval(interval);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`http://localhost:3000/api/attendance/session/${sessionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Check for new attendance records
+          const newRecords = data.filter(record => 
+            !attendanceList.find(existing => existing.id === record.id)
+          );
+          
+          if (newRecords.length > 0) {
+            setAttendanceList(data);
+            
+            // Update stats
+            if (data.length > 0) {
+              const avgScore = Math.round(
+                data.reduce((sum, a) => sum + a.securityScore, 0) / data.length
+              );
+              setStats(prev => ({
+                ...prev,
+                totalPresent: data.length,
+                averageSecurityScore: avgScore,
+                lastUpdated: new Date()
+              }));
+            }
+            
+            // Add activity for new records
+            newRecords.forEach(record => {
+              addActivity(
+                `${record.rollNumber} marked present (Security: ${record.securityScore}%)`, 
+                'success'
+              );
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error polling attendance:', error);
+      }
+    }, 3000); // Poll every 3 seconds
+    
+    return interval;
   };
 
   const handleEndSession = () => {
@@ -60,56 +141,38 @@ const TeacherDashboard = ({ user, onLogout }) => {
     setCurrentSession(null);
     setAttendanceList([]);
     
-    setActivity(prev => [{
-      id: Date.now(),
-      message: 'Session ended',
-      time: new Date().toLocaleTimeString(),
-      type: 'info'
-    }, ...prev]);
+    addActivity('Session ended by teacher', 'info');
   };
 
-  // Simulate receiving attendance updates
-  useEffect(() => {
-    if (sessionActive) {
-      const interval = setInterval(() => {
-        if (Math.random() > 0.7) { // 30% chance every 5 seconds
-          const studentId = `S${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`;
-          const securityScore = Math.floor(Math.random() * 30) + 70; // 70-100
-          
-          setAttendanceList(prev => {
-            if (prev.find(a => a.rollNumber === studentId)) return prev;
-            
-            const newAttendance = {
-              id: Date.now(),
-              rollNumber: studentId,
-              studentName: `Student ${studentId}`,
-              timestamp: new Date().toLocaleTimeString(),
-              securityScore,
-              status: 'present'
-            };
-            
-            setStats(prevStats => ({
-              ...prevStats,
-              totalPresent: prevStats.totalPresent + 1,
-              averageSecurityScore: Math.round((prevStats.averageSecurityScore * prevStats.totalPresent + securityScore) / (prevStats.totalPresent + 1)),
-              lastUpdated: new Date()
-            }));
-            
-            setActivity(prevActivity => [{
-              id: Date.now(),
-              message: `${studentId} marked present (Security: ${securityScore}%)`,
-              time: new Date().toLocaleTimeString(),
-              type: 'success'
-            }, ...prevActivity.slice(0, 9)]);
-            
-            return [newAttendance, ...prev];
-          });
+  const fetchSessionAttendance = async () => {
+    if (!currentSession) return;
+    
+    try {
+      const response = await fetch(`http://localhost:3000/api/attendance/session/${currentSession.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAttendanceList(data);
+        
+        // Update stats based on fetched data
+        if (data.length > 0) {
+          const avgScore = Math.round(
+            data.reduce((sum, a) => sum + a.securityScore, 0) / data.length
+          );
+          setStats(prev => ({
+            ...prev,
+            totalPresent: data.length,
+            averageSecurityScore: avgScore,
+            lastUpdated: new Date()
+          }));
         }
-      }, 5000);
-
-      return () => clearInterval(interval);
+        
+        addActivity('Attendance data refreshed', 'info');
+      }
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      addActivity('Failed to fetch attendance data', 'error');
     }
-  }, [sessionActive]);
+  };
 
   return (
     <div>
@@ -142,9 +205,14 @@ const TeacherDashboard = ({ user, onLogout }) => {
               </p>
             </div>
             {sessionActive && (
-              <button onClick={handleEndSession} className="btn btn-danger">
-                <i className="fas fa-stop"></i> End Session
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={fetchSessionAttendance} className="btn btn-secondary">
+                  <i className="fas fa-sync"></i> Refresh
+                </button>
+                <button onClick={handleEndSession} className="btn btn-danger">
+                  <i className="fas fa-stop"></i> End Session
+                </button>
+              </div>
             )}
           </div>
 
@@ -207,11 +275,13 @@ const TeacherDashboard = ({ user, onLogout }) => {
                 <div className="stat-label">Students Present</div>
               </div>
               <div className="stat-card">
-                <div className="stat-value">{stats.averageSecurityScore}%</div>
+                <div className="stat-value">{stats.averageSecurityScore || 0}%</div>
                 <div className="stat-label">Avg Security Score</div>
               </div>
               <div className="stat-card">
-                <div className="stat-value">{Math.round((stats.totalPresent / stats.totalExpected) * 100)}%</div>
+                <div className="stat-value">
+                  {stats.totalExpected > 0 ? Math.round((stats.totalPresent / stats.totalExpected) * 100) : 0}%
+                </div>
                 <div className="stat-label">Attendance Rate</div>
               </div>
             </div>
@@ -223,7 +293,9 @@ const TeacherDashboard = ({ user, onLogout }) => {
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">📋 Live Attendance</h3>
-              <p className="card-subtitle">Students marked present in real-time</p>
+              <p className="card-subtitle">
+                Real-time attendance submissions - {attendanceList.length} students marked
+              </p>
             </div>
 
             {attendanceList.length > 0 ? (
@@ -235,20 +307,29 @@ const TeacherDashboard = ({ user, onLogout }) => {
                     </div>
                     <div className="activity-content">
                       <div className="activity-message">
-                        {record.studentName} ({record.rollNumber})
+                        {record.studentName || `Student ${record.rollNumber}`} ({record.rollNumber})
                       </div>
                       <div className="activity-time">
-                        {record.timestamp} • Security: {record.securityScore}%
+                        {new Date(record.timestamp).toLocaleTimeString()} • Security: {record.securityScore}%
+                        {record.securityFlags && record.securityFlags.length > 0 && (
+                          <span style={{ color: 'var(--warning)', marginLeft: '10px' }}>
+                            ⚠️ {record.securityFlags.join(', ')}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
                 <i className="fas fa-users" style={{ fontSize: '48px', marginBottom: '1rem' }}></i>
-                <p>No students have marked attendance yet</p>
-                <p>Students will appear here as they connect via Bluetooth</p>
+                <h3>Waiting for Students</h3>
+                <p>Students will appear here as they mark attendance via Bluetooth</p>
+                <div style={{ marginTop: '20px', padding: '15px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius)' }}>
+                  <p><strong>📱 For Students:</strong> Use the student portal to scan for this beacon</p>
+                  <p><strong>🔗 Session ID:</strong> {currentSession?.id?.substring(0, 8)}...</p>
+                </div>
               </div>
             )}
           </div>
@@ -257,17 +338,23 @@ const TeacherDashboard = ({ user, onLogout }) => {
         {/* Activity Log */}
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">📊 Activity Log</h3>
-            <p className="card-subtitle">Recent system activities</p>
+            <h3 className="card-title">📊 System Activity</h3>
+            <p className="card-subtitle">Recent system events and notifications</p>
           </div>
 
           <div className="activity-log">
             {activity.map(item => (
               <div key={item.id} className="activity-item">
-                <div className="activity-icon">
+                <div className="activity-icon" style={{ 
+                  backgroundColor: 
+                    item.type === 'success' ? 'var(--success)' : 
+                    item.type === 'error' ? 'var(--error)' : 
+                    item.type === 'warning' ? 'var(--warning)' : 'var(--accent)' 
+                }}>
                   <i className={`fas ${
                     item.type === 'success' ? 'fa-check' : 
-                    item.type === 'error' ? 'fa-times' : 'fa-info'
+                    item.type === 'error' ? 'fa-times' : 
+                    item.type === 'warning' ? 'fa-exclamation' : 'fa-info'
                   }`}></i>
                 </div>
                 <div className="activity-content">
