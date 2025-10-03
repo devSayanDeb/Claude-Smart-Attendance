@@ -10,13 +10,11 @@ const StudentPortal = ({ user, onLogout }) => {
   const [deviceFingerprint, setDeviceFingerprint] = useState('');
   const [attendanceHistory, setAttendanceHistory] = useState([]);
 
-  // Generate device fingerprint on load
   useEffect(() => {
     generateDeviceFingerprint();
     fetchAttendanceHistory();
   }, []);
 
-  // Timer for OTP expiration
   useEffect(() => {
     let timer;
     if (timeRemaining > 0) {
@@ -52,7 +50,7 @@ const StudentPortal = ({ user, onLogout }) => {
     if (!user?.rollNumber) return;
     
     try {
-      const response = await fetch(`http://localhost:3000/api/attendance/history/${user.rollNumber}`);
+      const response = await fetch(`https://claude-smart-attendance-production.up.railway.app/api/attendance/history/${user.rollNumber}`);
       if (response.ok) {
         const data = await response.json();
         setAttendanceHistory(data);
@@ -80,8 +78,7 @@ const StudentPortal = ({ user, onLogout }) => {
     resetScanState();
 
     try {
-      // First, check if there are any active sessions
-      const sessionsResponse = await fetch('http://localhost:3000/api/sessions');
+      const sessionsResponse = await fetch('https://claude-smart-attendance-production.up.railway.app/api/sessions');
       
       if (!sessionsResponse.ok) {
         setStatus('❌ No active sessions found. Teacher must start a session first.');
@@ -98,17 +95,14 @@ const StudentPortal = ({ user, onLogout }) => {
         return;
       }
 
-      // Simulate beacon discovery process
       setTimeout(async () => {
         try {
-          // Use the first active session
           const selectedSession = activeSessions[0];
           
           setFoundBeacon(selectedSession);
           setStatus('📡 Beacon found! Requesting OTP...');
 
-          // Request OTP from backend
-          const otpResponse = await fetch('http://localhost:3000/api/attendance/request-otp', {
+          const otpResponse = await fetch('https://claude-smart-attendance-production.up.railway.app/api/attendance/request-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -122,7 +116,6 @@ const StudentPortal = ({ user, onLogout }) => {
             const otpData = await otpResponse.json();
             setOTP(otpData.otp);
             
-            // Calculate remaining time from server response
             const expiryTime = new Date(otpData.expiresAt).getTime();
             const currentTime = Date.now();
             const remainingSeconds = Math.max(0, Math.floor((expiryTime - currentTime) / 1000));
@@ -141,7 +134,7 @@ const StudentPortal = ({ user, onLogout }) => {
         } finally {
           setIsScanning(false);
         }
-      }, 2000); // 2 second scanning simulation
+      }, 2000);
 
     } catch (error) {
       console.error('Scanning error:', error);
@@ -160,7 +153,7 @@ const StudentPortal = ({ user, onLogout }) => {
     setStatus('📤 Submitting attendance...');
 
     try {
-      const response = await fetch('http://localhost:3000/api/attendance/submit', {
+      const response = await fetch('https://claude-smart-attendance-production.up.railway.app/api/attendance/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +171,6 @@ const StudentPortal = ({ user, onLogout }) => {
       if (response.ok) {
         setStatus(`✅ Success! Attendance marked (Security Score: ${result.securityScore}%)`);
         
-        // Add to history
         const newRecord = {
           id: result.attendanceId,
           className: foundBeacon.className,
@@ -189,7 +181,6 @@ const StudentPortal = ({ user, onLogout }) => {
         };
         setAttendanceHistory(prev => [newRecord, ...prev]);
         
-        // Reset state after successful submission
         setTimeout(() => {
           resetScanState();
           setStatus('Ready to scan for next session');
@@ -213,7 +204,7 @@ const StudentPortal = ({ user, onLogout }) => {
 
   const getClientIP = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/get-ip');
+      const response = await fetch('https://claude-smart-attendance-production.up.railway.app/api/get-ip');
       return await response.text();
     } catch {
       return 'unknown';
@@ -235,7 +226,6 @@ const StudentPortal = ({ user, onLogout }) => {
       </div>
 
       <div className="container">
-        {/* Attendance Scanner */}
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">📱 Mark Attendance</h2>
@@ -279,7 +269,6 @@ const StudentPortal = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                {/* OTP Display Section */}
                 {otp && (
                   <div className="form-group" style={{ maxWidth: '200px', margin: '0 auto 1rem' }}>
                     <label className="form-label">OTP Code</label>
@@ -301,7 +290,6 @@ const StudentPortal = ({ user, onLogout }) => {
                   </div>
                 )}
 
-                {/* Submit Button */}
                 {otp && (
                   <button
                     onClick={submitAttendance}
@@ -318,7 +306,6 @@ const StudentPortal = ({ user, onLogout }) => {
               </div>
             )}
 
-            {/* Status Display */}
             <div style={{ 
               marginTop: '1.5rem', 
               padding: '1rem', 
@@ -343,7 +330,6 @@ const StudentPortal = ({ user, onLogout }) => {
           </div>
         </div>
 
-        {/* Attendance History */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">📊 Your Attendance History</h3>
@@ -379,7 +365,6 @@ const StudentPortal = ({ user, onLogout }) => {
           )}
         </div>
 
-        {/* Instructions */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">📋 How to Mark Attendance</h3>
