@@ -40,7 +40,7 @@ const StudentPortal = ({ user, onLogout }) => {
       userAgent: navigator.userAgent,
       language: navigator.language,
       platform: navigator.platform,
-      screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
+      screen: `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       timestamp: Date.now()
     };
@@ -101,7 +101,7 @@ const StudentPortal = ({ user, onLogout }) => {
       // Simulate beacon discovery process
       setTimeout(async () => {
         try {
-          // Use the first active session (or could implement logic to find nearest beacon)
+          // Use the first active session
           const selectedSession = activeSessions[0];
           
           setFoundBeacon(selectedSession);
@@ -279,33 +279,42 @@ const StudentPortal = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                <div className="form-group" style={{ maxWidth: '200px', margin: '0 auto 1rem' }}>
-                  <label className="form-label">OTP Code</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={otp}
-                    readOnly
-                    style={{ 
-                      textAlign: 'center', 
-                      fontWeight: 'bold', 
-                      fontSize: '20px',
-                      letterSpacing: '2px'
-                    }}
-                  />
-                </div>
+                {/* OTP Display Section */}
+                {otp && (
+                  <div className="form-group" style={{ maxWidth: '200px', margin: '0 auto 1rem' }}>
+                    <label className="form-label">OTP Code</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={otp}
+                      readOnly
+                      style={{ 
+                        textAlign: 'center', 
+                        fontWeight: 'bold', 
+                        fontSize: '20px',
+                        letterSpacing: '2px',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--accent)',
+                        border: '2px solid var(--accent)'
+                      }}
+                    />
+                  </div>
+                )}
 
-                <button
-                  onClick={submitAttendance}
-                  disabled={!otp || timeRemaining <= 0 || isSubmitting}
-                  className="btn btn-success btn-large"
-                >
-                  {isSubmitting ? (
-                    <><i className="fas fa-spinner fa-spin"></i> Submitting...</>
-                  ) : (
-                    <><i className="fas fa-check"></i> Submit Attendance</>
-                  )}
-                </button>
+                {/* Submit Button */}
+                {otp && (
+                  <button
+                    onClick={submitAttendance}
+                    disabled={!otp || timeRemaining <= 0 || isSubmitting}
+                    className="btn btn-success btn-large"
+                  >
+                    {isSubmitting ? (
+                      <><i className="fas fa-spinner fa-spin"></i> Submitting...</>
+                    ) : (
+                      <><i className="fas fa-check"></i> Submit Attendance</>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 
