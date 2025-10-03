@@ -27,8 +27,7 @@
     "morgan": "^1.10.0",
     "dotenv": "^16.0.3",
     "uuid": "^9.0.0",
-    "geoip-lite": "^1.4.7",
-    "crypto": "^1.0.1"
+    "geoip-lite": "^1.4.7"
   },
   "devDependencies": {
     "nodemon": "^2.0.20",

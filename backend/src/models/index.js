@@ -1,11 +1,5 @@
 const { Sequelize, DataTypes } = require('sequelize');
-const config = require('../config/database');
-
-const sequelize = new Sequelize(config.database, config.username, config.password, {
-  host: config.host,
-  dialect: config.dialect,
-  logging: config.logging
-});
+const sequelize = require('../config/database');
 
 // User Model
 const User = sequelize.define('User', {
@@ -35,7 +29,7 @@ const User = sequelize.define('User', {
   rollNumber: {
     type: DataTypes.STRING,
     unique: true,
-    allowNull: true // Only for students
+    allowNull: true
   },
   isActive: {
     type: DataTypes.BOOLEAN,
@@ -164,9 +158,7 @@ const Attendance = sequelize.define('Attendance', {
     { fields: ['sessionId'] },
     { fields: ['studentId'] },
     { fields: ['rollNumber'] },
-    { fields: ['timestamp'] },
-    { fields: ['deviceFingerprint'] },
-    { fields: ['ipAddress'] }
+    { fields: ['timestamp'] }
   ]
 });
 
@@ -264,8 +256,7 @@ const SecurityLog = sequelize.define('SecurityLog', {
   indexes: [
     { fields: ['type'] },
     { fields: ['severity'] },
-    { fields: ['createdAt'] },
-    { fields: ['resolved'] }
+    { fields: ['createdAt'] }
   ]
 });
 
@@ -314,8 +305,7 @@ const DeviceTracking = sequelize.define('DeviceTracking', {
   indexes: [
     { fields: ['deviceFingerprint'] },
     { fields: ['studentId'] },
-    { fields: ['sessionId'] },
-    { fields: ['isBlocked'] }
+    { fields: ['sessionId'] }
   ]
 });
 
